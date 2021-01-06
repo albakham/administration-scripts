@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Modify next line to where your firefly-iii instance is installed to.
+cd /var/www/html
+
+# Remove old version of firefly-iii
+rm -r firefly-iii-old
+
+# Get latest version of firefly
+latestversion=$(curl -s https://api.github.com/repos/firefly-iii/firefly-iii/releases/latest  | grep -oP '"tag_name": "\K(.*)(?=")')
+
+# Install latest version
+/usr/local/bin/composer create-project grumpydictator/firefly-iii --no-dev --prefer-dist firefly-iii-updated $latestversion
+cp firefly-iii/.env firefly-iii-updated/.env
+cp firefly-iii/storage/upload/* firefly-iii-updated/storage/upload/
+cp firefly-iii/storage/export/* firefly-iii-updated/storage/export/
+cd firefly-iii-updated
+rm -rf bootstrap/cache/*
+php artisan cache:clear
+php artisan migrate --seed
+php artisan firefly-iii:upgrade-database
+php artisan passport:install
+php artisan cache:clear
+
+# Serve next version, make sure rights are ok, restart apache2
+cd ..
+mv firefly-iii firefly-iii-old
+mv firefly-iii-updated firefly-iii
+chown -R www-data:www-data firefly-iii
+chmod -R 775 firefly-iii/storage
+service apache2 restart
